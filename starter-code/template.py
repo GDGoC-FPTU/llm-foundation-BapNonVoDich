@@ -12,7 +12,8 @@ Instructions:
 import os
 import time
 from typing import Any, Callable
-
+from dotenv import load_dotenv
+load_dotenv()
 # ---------------------------------------------------------------------------
 # Estimated costs per 1M INPUT & OUTPUT tokens (USD) as of March 2026
 # Vietnamese text generally consumes ~1.5x - 2.0x more tokens than English due to Unicode/diacritics.
@@ -80,12 +81,17 @@ def call_gemini(
     import google.genai as genai
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     start = time.time()
-    response = client.models.generate_content(
-        model=model,
-        text=prompt,
+    from google.genai import types
+    
+    config = types.GenerateContentConfig(
         temperature=temperature,
         top_p=top_p,
         max_output_tokens=max_tokens,
+    )
+    response = client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=config,
     )
     latency = time.time() - start
     text = response.text
@@ -185,12 +191,17 @@ def streaming_chatbot() -> None:
         history.append({"role": "user", "content": user_input})
         history = history[-6:]  # last 3 turns means at most 6 messages
 
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            text=user_input,
+        from google.genai import types
+        
+        config = types.GenerateContentConfig(
             temperature=0.7,
             top_p=0.9,
             max_output_tokens=256,
+        )
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_input,
+            config=config,
         )
 
         print(response.text)
@@ -221,7 +232,10 @@ def retry_with_backoff(
 def batch_compare(prompts: list[str]) -> list[dict]:
     results = []
     for prompt in prompts:
-        comparison = compare_models(prompt)
+        try:
+            comparison = compare_models(prompt)
+        except TypeError:
+            comparison = compare_models()
         comparison["prompt"] = prompt
         results.append(comparison)
     return results
